@@ -154,33 +154,38 @@ namespace ICSharpCode.SharpZipLib.Zip
 				CloseEntry();
 			}
 
-			int header = inputBuffer.ReadLeInt();
+			for (int bytesCount = 0; ; bytesCount += 4) {
+				int header = inputBuffer.ReadLeInt();
 
-			if (header == ZipConstants.CentralHeaderSignature ||
-				header == ZipConstants.EndOfCentralDirectorySignature ||
-				header == ZipConstants.CentralHeaderDigitalSignature ||
-				header == ZipConstants.ArchiveExtraDataSignature ||
-				header == ZipConstants.Zip64CentralFileHeaderSignature) {
-				// No more individual entries exist
-				Dispose();
-				return null;
+				if (header == ZipConstants.CentralHeaderSignature ||
+					header == ZipConstants.EndOfCentralDirectorySignature ||
+					header == ZipConstants.CentralHeaderDigitalSignature ||
+					header == ZipConstants.ArchiveExtraDataSignature ||
+					header == ZipConstants.Zip64CentralFileHeaderSignature) {
+					// No more individual entries exist
+					Close();
+					return null;
+				}
+
+				if (header == ZipConstants.LocalHeaderSignature) {
+					break;
+				}
+				if (bytesCount >= 12) {
+					throw new ZipException("Not found LocalHeaderSignature¡£");
+				}
 			}
 
 			// -jr- 07-Dec-2003 Ignore spanning temporary signatures if found
 			// Spanning signature is same as descriptor signature and is untested as yet.
-			if ((header == ZipConstants.SpanningTempSignature) || (header == ZipConstants.SpanningSignature)) {
-				header = inputBuffer.ReadLeInt();
-			}
+			//if ( (header == ZipConstants.SpanningTempSignature) || (header == ZipConstants.SpanningSignature) ) {
+			//	header = inputBuffer.ReadLeInt();
+			//}
 
-			if (header != ZipConstants.LocalHeaderSignature) {
-				throw new ZipException("Wrong Local header signature: 0x" + String.Format("{0:X}", header));
-			}
-
-			var versionRequiredToExtract = (short)inputBuffer.ReadLeShort();
+			short versionRequiredToExtract = (short)inputBuffer.ReadLeShort();
 
 			flags = inputBuffer.ReadLeShort();
 			method = inputBuffer.ReadLeShort();
-			var dostime = (uint)inputBuffer.ReadLeInt();
+			uint dostime = (uint)inputBuffer.ReadLeInt();
 			int crc2 = inputBuffer.ReadLeInt();
 			csize = inputBuffer.ReadLeInt();
 			size = inputBuffer.ReadLeInt();
@@ -194,10 +199,10 @@ namespace ICSharpCode.SharpZipLib.Zip
 
 			string name = ZipConstants.ConvertToStringExt(flags, buffer);
 
-			entry = new ZipEntry(name, versionRequiredToExtract);
-			entry.Flags = flags;
-
-			entry.CompressionMethod = (CompressionMethod)method;
+			entry = new ZipEntry(name, versionRequiredToExtract) {
+				Flags = flags,
+				CompressionMethod = (CompressionMethod)method
+			};
 
 			if ((flags & 8) == 0) {
 				entry.Crc = crc2 & 0xFFFFFFFFL;
@@ -265,21 +270,8 @@ namespace ICSharpCode.SharpZipLib.Zip
 		/// </summary>
 		void ReadDataDescriptor()
 		{
-			if (inputBuffer.ReadLeInt() != ZipConstants.DataDescriptorSignature) {
-				throw new ZipException("Data descriptor signature not found");
-			}
-
-			entry.Crc = inputBuffer.ReadLeInt() & 0xFFFFFFFFL;
-
-			if (entry.LocalHeaderRequiresZip64) {
-				csize = inputBuffer.ReadLeLong();
-				size = inputBuffer.ReadLeLong();
-			} else {
-				csize = inputBuffer.ReadLeInt();
-				size = inputBuffer.ReadLeInt();
-			}
-			entry.CompressedSize = csize;
-			entry.Size = size;
+			inputBuffer.ReadLeInt();
+			inputBuffer.ReadLeLong();
 		}
 
 		/// <summary>
