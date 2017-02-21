@@ -645,11 +645,8 @@ namespace ICSharpCode.SharpZipLib.Zip
 				throw new ObjectDisposedException("ZipFile");
 			}
 
-			// TODO: This will be slow as the next ice age for huge archives!
-			for (int i = 0; i < entries_.Length; i++) {
-				if (string.Compare(name, entries_[i].Name, ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) == 0) {
-					return i;
-				}
+			if (entriesMap.TryGetValue(name, out int index)) {
+				return index;
 			}
 			return -1;
 		}
@@ -1146,6 +1143,24 @@ namespace ICSharpCode.SharpZipLib.Zip
 				int extraLength = storedNameLength + extraDataLength;
 				return offsetOfFirstEntry + entry.Offset + ZipConstants.LocalHeaderBaseSize + extraLength;
 			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <returns></returns>
+		public ZipEntry GetEntryReadonly(int index) {
+			return entries_[index];
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="name"></param>
+		/// <returns></returns>
+		public ZipEntry GetEntryReadonly(string name) {
+			return entries_[entriesMap[name]];
 		}
 
 		#endregion
@@ -2978,6 +2993,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 			}
 
 			entries_ = new ZipEntry[entriesForThisDisk];
+			entriesMap = new Dictionary<string, int>((int)entriesForThisDisk);
 
 			// SFX/embedded support, find the offset of the first entry vis the start of the stream
 			// This applies to Zip files that are appended to the end of an SFX stub.
@@ -3052,6 +3068,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 				}
 
 				entries_[i] = entry;
+				entriesMap[name] = (int)i;
 			}
 		}
 
@@ -3175,6 +3192,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 		ZipEntry[] entries_;
 		byte[] key;
 		bool isNewArchive_;
+		Dictionary<string, int> entriesMap;
 
 		// Default is dynamic which is not backwards compatible and can cause problems
 		// with XP's built in compression which cant read Zip64 archives.
