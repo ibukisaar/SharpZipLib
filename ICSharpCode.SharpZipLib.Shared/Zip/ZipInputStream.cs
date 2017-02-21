@@ -163,7 +163,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 					header == ZipConstants.ArchiveExtraDataSignature ||
 					header == ZipConstants.Zip64CentralFileHeaderSignature) {
 					// No more individual entries exist
-					Close();
+					Dispose();
 					return null;
 				}
 
